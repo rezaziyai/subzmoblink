@@ -1,0 +1,8 @@
+RAW:
+https://raw.githubusercontent.com/YOUR_USERNAME/sub-mirror/main/base64.txt
+
+JSDELIVR:
+https://cdn.jsdelivr.net/gh/YOUR_USERNAME/sub-mirror@main/base64.txt
+
+SOURCE:
+https://sub.whitedns.shop/sub/base64.txt

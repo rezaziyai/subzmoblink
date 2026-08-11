@@ -1,0 +1,74 @@
+name: Update WhiteDNS Subscription
+
+on:
+  workflow_dispatch:
+  schedule:
+    # Every 15 minutes (UTC). GitHub may occasionally delay scheduled jobs.
+    - cron: "*/15 * * * *"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: whitedns-sub-mirror
+  cancel-in-progress: true
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+
+      - name: Fetch subscription safely
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          SOURCE_URL="https://sub.whitedns.shop/sub/base64.txt"
+          TMP_FILE="$(mktemp)"
+
+          curl \
+            --location \
+            --fail \
+            --silent \
+            --show-error \
+            --connect-timeout 15 \
+            --max-time 90 \
+            --retry 3 \
+            --retry-delay 3 \
+            --retry-all-errors \
+            "$SOURCE_URL" \
+            --output "$TMP_FILE"
+
+          SIZE="$(wc -c < "$TMP_FILE")"
+          echo "Downloaded: $SIZE bytes"
+
+          # Never overwrite the last good mirror with an empty/broken response.
+          if [ "$SIZE" -lt 100 ]; then
+            echo "Downloaded file is unexpectedly small; keeping previous mirror."
+            exit 1
+          fi
+
+          mv "$TMP_FILE" base64.txt
+
+      - name: Commit only when subscription changed
+        shell: bash
+        env:
+          BRANCH: ${{ github.event.repository.default_branch }}
+        run: |
+          set -euo pipefail
+
+          git config user.name "WhiteDNS Mirror Bot"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          git add base64.txt
+
+          if git diff --cached --quiet; then
+            echo "No subscription changes."
+            exit 0
+          fi
+
+          git commit -m "Update subscription"
+          git push origin HEAD:"$BRANCH"
